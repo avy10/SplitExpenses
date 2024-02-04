@@ -1,3 +1,4 @@
+import { calculateNewValue } from "@testing-library/user-event/dist/utils";
 import { useState } from "react";
 
 const initialFriends = [
@@ -34,6 +35,19 @@ export default function App() {
 		SetUserId(value);
 	}
 
+	function handleBalanceUpdate(frendID, share) {
+		console.log("ID", frendID, "AMOUNT", share);
+		SetFriendsARR((prev) => {
+			return prev.map((ele) => {
+				const eachObj = { ...ele };
+				if (eachObj.id === frendID) {
+					eachObj.balance += share;
+				}
+				return eachObj;
+			});
+		});
+	}
+
 	return (
 		<div className="app">
 			<FriendUI
@@ -42,7 +56,11 @@ export default function App() {
 				onSelect={toggleShowMainLogic}
 			/>
 			{showMainLogic && (
-				<MainLogic userId={userId} friendsARR={friendsARR} />
+				<MainLogic
+					userId={userId}
+					friendsARR={friendsARR}
+					onSplit={handleBalanceUpdate}
+				/>
 			)}
 		</div>
 	);
@@ -72,7 +90,11 @@ function FriendUI({ friendsARR, onAddFren, onSelect }) {
 
 function FriendList({ obj, onSelect }) {
 	const [hasSelect, setHasSelect] = useState(false);
-	function handleClick(val) {
+	function handleClick(e, val) {
+		const a = e.target.value;
+		// console.log(e.target.value);
+		// const booleanValue = e.target.value;
+		console.log("BOOLEAN VALUE", a, typeof a, Boolean(a));
 		onSelect(val);
 		setHasSelect((prev) => !prev);
 	}
@@ -87,8 +109,20 @@ function FriendList({ obj, onSelect }) {
 						You owe {obj.name + " " + obj.balance} $
 					</span>
 				)}
+
+				{obj.balance === 0 && <span>Balance settled</span>}
+
+				{obj.balance > 0 && (
+					<span className="green">
+						{obj.name} owes you {obj.balance} $
+					</span>
+				)}
 			</p>
-			<button className="button" onClick={() => handleClick(obj.id)}>
+			<button
+				className="button"
+				value={hasSelect}
+				onClick={(e) => handleClick(e, obj.id)}
+			>
 				{hasSelect ? "Close" : "Select"}
 			</button>
 		</>
@@ -135,35 +169,59 @@ function AddFriendForm({ onAddFren }) {
 	);
 }
 
-function MainLogic({ userId, friendsARR, SETSOMEVALUE }) {
+function MainLogic({ userId, friendsARR, onSplit }) {
 	const obj = friendsARR.filter((ele) => ele.id == userId);
 	const friendName = obj[0].name;
+
 	const [user, setUser] = useState("myself");
+
+	const [bill, setBill] = useState(0);
+	const [myExpense, setMyExpense] = useState(0);
+	const [frenExpense, setFrenExpense] = useState(0);
+
+	function claculations(myexpense) {
+		const amountIPaid = +myexpense;
+		setMyExpense(amountIPaid);
+		let amountFrenPaid = bill - amountIPaid;
+		amountFrenPaid = amountFrenPaid < 0 ? 0 : amountFrenPaid;
+		setFrenExpense(amountFrenPaid);
+	}
+
+	function onSubmitClick(e) {
+		e.preventDefault();
+		const frendID = +user;
+		if (user === "myself") {
+			onSplit(obj[0].id, frenExpense);
+		} else {
+			const frenShare = -1 * frenExpense;
+			onSplit(frendID, frenShare);
+		}
+	}
 	return (
 		<form className="form-split-bill">
-			<h2>split a bill with Abhishek</h2>
+			<h2>split a bill with {friendName}</h2>
 
 			<label htmlFor="billValue">💰 Bill Value</label>
 			<input
 				type="number"
 				id="billValue"
-				value={SETSOMEVALUE}
-				onChange={SETSOMEVALUE}
+				value={bill}
+				onChange={(e) => setBill(e.target.value)}
 			/>
 			<label htmlFor="myExpense">😎Your Expense</label>
 			<input
 				type="number"
 				id="myExpense"
-				value={SETSOMEVALUE}
-				onChange={SETSOMEVALUE}
+				value={myExpense}
+				onChange={(e) => claculations(e.target.value)}
 			/>
 
 			<label htmlFor="frenExpense">👻{friendName}'s Expense</label>
 			<input
 				type="number"
 				id="frenExpense"
-				value={SETSOMEVALUE}
-				onChange={SETSOMEVALUE}
+				value={frenExpense}
+				disabled={true}
 			/>
 
 			<label htmlFor="payee">🤑 Who's paying the bill?</label>
@@ -172,10 +230,12 @@ function MainLogic({ userId, friendsARR, SETSOMEVALUE }) {
 				value={user}
 				onChange={(e) => setUser(e.target.value)}
 			>
-				<option value={user}>Myself</option>
-				<option value={user}>{friendName}</option>
+				<option value={"myself"}>Myself</option>
+				<option value={userId}>{friendName}</option>
 			</select>
-			<button className="button">Split Bill</button>
+			<button className="button" onClick={(e) => onSubmitClick(e)}>
+				Split Bill
+			</button>
 		</form>
 	);
 }
